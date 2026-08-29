@@ -1,0 +1,29 @@
+[
+  {
+    "id": "102",
+    "paciente": "   Carlos Ruiz ",
+    "documento": 31654210,
+    "especialidad": "PEDIATRÍA",
+    "fecha": "14/08/2026",
+    "hora": "10.00",
+    "confirmado": "si"
+  },
+  {
+    "id": "103",
+    "paciente": "Ana Gomez",
+    "documento": "28999111",
+    "especialidad": "CLÍNICA MÉDICA",
+    "fecha": "15/08/2026",
+    "hora": "11:30",
+    "confirmado": false
+  },
+  {
+    "id": "invalid_id",
+    "paciente": "Registro Invalido",
+    "documento": 0,
+    "especialidad": "ODONTOLOGÍA",
+    "fecha": "15/08/2026",
+    "hora": "12.00",
+    "confirmado": "no"
+  }
+]
