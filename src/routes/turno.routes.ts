@@ -6,13 +6,19 @@ import {
   updateTurno,
   deleteTurno,
 } from '../controllers/turno.controller.js';
+import { validateBody, validateQuery } from '../middlewares/validate.js';
+import {
+  turnoCreateSchema,
+  turnoUpdateSchema,
+  turnoQuerySchema,
+} from '../schemas/turno.schema.js';
 
 const router = Router();
 
-router.get('/', getTurnos);
+router.get('/', validateQuery(turnoQuerySchema), getTurnos);
 router.get('/:id', getTurnoById);
-router.post('/', createTurno);
-router.put('/:id', updateTurno);
+router.post('/', validateBody(turnoCreateSchema), createTurno);
+router.put('/:id', validateBody(turnoUpdateSchema), updateTurno);
 router.delete('/:id', deleteTurno);
 
 export default router;

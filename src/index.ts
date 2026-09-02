@@ -3,8 +3,11 @@ import { createServer } from 'node:http';
 import { Server as SocketIOServer } from 'socket.io';
 import { PORT } from './config/env.js';
 import turnoRoutes from './routes/turno.routes.js';
+import medicoRoutes from './routes/medico.routes.js';
 import { turnoService } from './services/turno.service.js';
+import { medicoService } from './services/medico.service.js';
 import { appEvents } from './events/eventEmitter.js';
+import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -16,6 +19,10 @@ const io = new SocketIOServer(httpServer, {
 
 app.use(express.json());
 app.use('/turnos', turnoRoutes);
+app.use('/medicos', medicoRoutes);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Puente entre EventEmitter y Socket.IO
 appEvents.on('turno:creado', (turno) => {
@@ -39,6 +46,7 @@ io.on('connection', (socket) => {
 
 async function main() {
   await turnoService.cargarTurnosIniciales();
+  await medicoService.cargarMedicosIniciales();
   httpServer.listen(PORT, () => {
     console.log(`Servidor de TurnosRed ejecutándose en el puerto ${PORT}`);
   });

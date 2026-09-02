@@ -1,7 +1,20 @@
 import fs from 'node:fs/promises';
 import { DATA_PATH } from '../config/env.js';
-import { Turno, TurnoCrudo, normalizarTurno } from '../models/turno.model.js';
+import {
+  Turno,
+  TurnoCrudo,
+  aTitleCase,
+  normalizarTurno,
+} from '../models/turno.model.js';
 import { appEvents } from '../events/eventEmitter.js';
+import { AppError, badRequest, notFound } from '../utils/AppError.js';
+import { sinDiacriticos } from '../utils/text.js';
+
+export interface TurnoFiltros {
+  especialidad?: string;
+  fecha?: string;
+  medicoId?: number;
+}
 
 class TurnoService {
   private turnos: Turno[] = [];
@@ -25,30 +38,60 @@ class TurnoService {
         return acc;
       }, []);
 
-      console.log(`[Procesamiento Inicial] Registros Aceptados: ${aceptados} | Registros Rechazados: ${rechazados}`);
+      console.log(
+        `[Procesamiento Inicial] Turnos Aceptados: ${aceptados} | Turnos Rechazados: ${rechazados}`
+      );
     } catch (error) {
-      console.error('Error al leer el archivo turnos.json:', error);
-      this.turnos = [];
+      throw new AppError(
+        500,
+        'DATA_LOAD_ERROR',
+        'Error al leer el archivo turnos.json.',
+        [error]
+      );
     }
   }
 
-  obtenerTodos(): Turno[] {
-    return this.turnos;
+  obtenerTodos(filtros: TurnoFiltros = {}): Turno[] {
+    const especialidad = filtros.especialidad
+      ? aTitleCase(filtros.especialidad)
+      : undefined;
+
+    return this.turnos.filter((t) => {
+      if (
+        especialidad &&
+        !sinDiacriticos(t.especialidad).includes(sinDiacriticos(especialidad))
+      ) {
+        return false;
+      }
+      if (filtros.fecha && t.fecha !== filtros.fecha) {
+        return false;
+      }
+      if (filtros.medicoId !== undefined && t.medicoId !== filtros.medicoId) {
+        return false;
+      }
+      return true;
+    });
   }
 
-  obtenerPorId(id: number): Turno | undefined {
-    return this.turnos.find((t) => t.id === id);
+  obtenerPorId(id: number): Turno {
+    const turno = this.turnos.find((t) => t.id === id);
+    if (!turno) {
+      throw notFound('Turno no encontrado.');
+    }
+    return turno;
   }
 
   crear(nuevoTurnoData: TurnoCrudo): Turno {
     const nuevoTurno = normalizarTurno(nuevoTurnoData);
     if (!nuevoTurno) {
-      throw new Error('Estructura de turno inválida.');
+      throw badRequest('Estructura de turno inválida.', [
+        'Estructura de turno inválida.',
+      ]);
     }
 
     const existe = this.turnos.some((t) => t.id === nuevoTurno.id);
     if (existe) {
-      throw new Error('El ID de turno ya existe.');
+      throw new AppError(409, 'CONFLICT', 'El ID de turno ya existe.');
     }
 
     this.turnos.push(nuevoTurno);
@@ -59,7 +102,7 @@ class TurnoService {
   actualizar(id: number, datosActualizados: Partial<TurnoCrudo>): Turno {
     const index = this.turnos.findIndex((t) => t.id === id);
     if (index === -1) {
-      throw new Error('Turno no encontrado.');
+      throw notFound('Turno no encontrado.');
     }
 
     const turnoActual = this.turnos[index];
@@ -67,7 +110,9 @@ class TurnoService {
     const turnoNormalizado = normalizarTurno(turnoMerged);
 
     if (!turnoNormalizado) {
-      throw new Error('Datos de actualización inválidos.');
+      throw badRequest('Datos de actualización inválidos.', [
+        'Datos de actualización inválidos.',
+      ]);
     }
 
     this.turnos[index] = turnoNormalizado;
@@ -75,15 +120,14 @@ class TurnoService {
     return turnoNormalizado;
   }
 
-  eliminar(id: number): Turno {
+  eliminar(id: number): void {
     const index = this.turnos.findIndex((t) => t.id === id);
     if (index === -1) {
-      throw new Error('Turno no encontrado.');
+      throw notFound('Turno no encontrado.');
     }
 
     const [turnoEliminado] = this.turnos.splice(index, 1);
     appEvents.emit('turno:eliminado', turnoEliminado);
-    return turnoEliminado;
   }
 }
 

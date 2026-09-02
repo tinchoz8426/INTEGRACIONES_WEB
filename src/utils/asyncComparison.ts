@@ -13,7 +13,10 @@
  */
 import fs from 'node:fs';
 
-export function leerConCallback(path: string, callback: (err: Error | null, data?: string) => void): void {
+export function leerConCallback(
+  path: string,
+  callback: (err: Error | null, data?: string) => void
+): void {
   fs.readFile(path, 'utf-8', (err, data) => {
     if (err) {
       callback(err);

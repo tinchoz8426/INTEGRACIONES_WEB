@@ -1,74 +1,40 @@
 import { Request, Response } from 'express';
 import { turnoService } from '../services/turno.service.js';
 
-export const getTurnos = (_req: Request, res: Response): void => {
-  try {
-    const turnos = turnoService.obtenerTodos();
-    res.status(200).json(turnos);
-  } catch (error) {
-    res.status(500).json({ error: 'Error interno del servidor.' });
-  }
+export const getTurnos = (req: Request, res: Response): void => {
+  const { especialidad, fecha, medicoId } = req.query as {
+    especialidad?: string;
+    fecha?: string;
+    medicoId?: string;
+  };
+  res.status(200).json(
+    turnoService.obtenerTodos({
+      especialidad,
+      fecha,
+      medicoId: medicoId ? Number(medicoId) : undefined,
+    })
+  );
 };
 
 export const getTurnoById = (req: Request, res: Response): void => {
-  try {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      res.status(400).json({ error: 'El ID debe ser un número válido.' });
-      return;
-    }
-    const turno = turnoService.obtenerPorId(id);
-    if (!turno) {
-      res.status(404).json({ error: 'Turno no encontrado.' });
-      return;
-    }
-    res.status(200).json(turno);
-  } catch (error) {
-    res.status(500).json({ error: 'Error interno del servidor.' });
-  }
+  const turno = turnoService.obtenerPorId(Number(req.params.id));
+  res.status(200).json(turno);
 };
 
 export const createTurno = (req: Request, res: Response): void => {
-  try {
-    const nuevoTurno = turnoService.crear(req.body);
-    res.status(201).json(nuevoTurno);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message || 'Error al crear el turno.' });
-  }
+  const nuevoTurno = turnoService.crear(req.body);
+  res.status(201).json(nuevoTurno);
 };
 
 export const updateTurno = (req: Request, res: Response): void => {
-  try {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      res.status(400).json({ error: 'El ID debe ser un número válido.' });
-      return;
-    }
-    const turnoActualizado = turnoService.actualizar(id, req.body);
-    res.status(200).json(turnoActualizado);
-  } catch (error: any) {
-    if (error.message === 'Turno no encontrado.') {
-      res.status(404).json({ error: error.message });
-      return;
-    }
-    res.status(400).json({ error: error.message || 'Error al actualizar el turno.' });
-  }
+  const turnoActualizado = turnoService.actualizar(
+    Number(req.params.id),
+    req.body
+  );
+  res.status(200).json(turnoActualizado);
 };
 
 export const deleteTurno = (req: Request, res: Response): void => {
-  try {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      res.status(400).json({ error: 'El ID debe ser un número válido.' });
-      return;
-    }
-    const turnoEliminado = turnoService.eliminar(id);
-    res.status(200).json({ mensaje: 'Turno eliminado correctamente.', turno: turnoEliminado });
-  } catch (error: any) {
-    if (error.message === 'Turno no encontrado.') {
-      res.status(404).json({ error: error.message });
-      return;
-    }
-    res.status(500).json({ error: 'Error al eliminar el turno.' });
-  }
+  turnoService.eliminar(Number(req.params.id));
+  res.status(204).send();
 };

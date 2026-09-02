@@ -1,0 +1,37 @@
+[
+  {
+    "id": "201",
+    "nombre": "  Dra. Laura Fernandez ",
+    "matricula": "MN 12345",
+    "especialidad": "PEDIATRÍA",
+    "telefono": "11-5555-0101",
+    "email": "laura.fernandez@hospital.com",
+    "activo": true
+  },
+  {
+    "id": "202",
+    "nombre": "Dr. Martin Lopez",
+    "matricula": 67890,
+    "especialidad": "CLÍNICA MÉDICA",
+    "telefono": "11-5555-0202",
+    "email": "martin.lopez@hospital.com",
+    "activo": true
+  },
+  {
+    "id": "203",
+    "nombre": "Dra. Silvia Rodriguez",
+    "matricula": "MN 24680",
+    "especialidad": "ODONTOLOGÍA",
+    "telefono": "11-5555-0404",
+    "email": "silvia.rodriguez@hospital.com",
+    "activo": false
+  },
+  {
+    "id": "invalid_id",
+    "nombre": "Registro Invalido",
+    "matricula": 0,
+    "especialidad": "ODONTOLOGÍA",
+    "telefono": "11-5555-0303",
+    "activo": false
+  }
+]

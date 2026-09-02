@@ -6,6 +6,7 @@ export interface TurnoCrudo {
   fecha: string;
   hora: string;
   confirmado: string | boolean;
+  medicoId?: string | number;
   observaciones?: string;
 }
 
@@ -17,7 +18,18 @@ export interface Turno {
   fecha: string;
   hora: string;
   confirmado: boolean;
+  medicoId?: number;
   observaciones?: string;
+}
+
+export function aTitleCase(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .replace(
+      /(^|\s)(\p{L})/gu,
+      (_m, espacio, letra) => espacio + letra.toUpperCase()
+    );
 }
 
 export function normalizarTurno(crudo: Partial<TurnoCrudo>): Turno | null {
@@ -27,7 +39,13 @@ export function normalizarTurno(crudo: Partial<TurnoCrudo>): Turno | null {
       return null;
     }
 
-    if (!crudo.paciente || !crudo.documento || !crudo.especialidad || !crudo.fecha || !crudo.hora) {
+    if (
+      !crudo.paciente ||
+      !crudo.documento ||
+      !crudo.especialidad ||
+      !crudo.fecha ||
+      !crudo.hora
+    ) {
       return null;
     }
 
@@ -41,18 +59,34 @@ export function normalizarTurno(crudo: Partial<TurnoCrudo>): Turno | null {
       confirmadoBooleano = crudo.confirmado;
     } else if (typeof crudo.confirmado === 'string') {
       const val = crudo.confirmado.trim().toLowerCase();
-      confirmadoBooleano = val === 'si' || val === 'sí' || val === 'true' || val === '1';
+      confirmadoBooleano =
+        val === 'si' || val === 'sí' || val === 'true' || val === '1';
+    }
+
+    let medicoIdNormalizado: number | undefined;
+    if (
+      crudo.medicoId !== undefined &&
+      crudo.medicoId !== null &&
+      crudo.medicoId !== ''
+    ) {
+      const mId = Number(crudo.medicoId);
+      if (!isNaN(mId) && mId > 0 && Number.isInteger(mId)) {
+        medicoIdNormalizado = mId;
+      }
     }
 
     return {
       id: idNum,
       paciente: pacienteSanitizado,
       documento: documentoSanitizado,
-      especialidad: String(crudo.especialidad).trim().toUpperCase(),
+      especialidad: aTitleCase(String(crudo.especialidad)),
       fecha: fechaSanitizada,
       hora: horaSanitizada,
       confirmado: confirmadoBooleano,
-      ...(crudo.observaciones ? { observaciones: String(crudo.observaciones).trim() } : {}),
+      ...(medicoIdNormalizado ? { medicoId: medicoIdNormalizado } : {}),
+      ...(crudo.observaciones
+        ? { observaciones: String(crudo.observaciones).trim() }
+        : {}),
     };
   } catch {
     return null;

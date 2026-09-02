@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 18mm;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Calibri, Arial, sans-serif;
+      font-size: 12px;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 17px;
+      color: #1f3b73;
+      border-bottom: 2px solid #1f3b73;
+      padding-bottom: 4px;
+      margin: 26px 0 10px 0;
+      page-break-after: avoid;
+    }
+    h2 {
+      font-size: 14px;
+      color: #2a5298;
+      margin: 18px 0 6px 0;
+      page-break-after: avoid;
+    }
+    p { margin: 6px 0; }
+    ul { margin: 6px 0 6px 0; padding-left: 20px; }
+    li { margin: 3px 0; }
+    .portada {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .portada .title { font-size: 24px; font-weight: bold; color: #1f3b73; margin: 4px 0; }
+    .portada .subtitle { font-size: 15px; font-weight: bold; color: #333; margin: 4px 0; }
+    .portada .meta { font-size: 12px; color: #555; margin-top: 8px; }
+    .codigo {
+      background: #f2f2f2;
+      border: 1px solid #cccccc;
+      padding: 8px 10px;
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 8px 0;
+      border-radius: 3px;
+    }
+    .box {
+      border: 2px dashed #999;
+      padding: 10px 12px;
+      margin: 10px 0;
+      color: #555;
+      font-style: italic;
+      font-size: 11px;
+      background: #fafafa;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 10px 0;
+      font-size: 11px;
+    }
+    th {
+      background: #d9e2f3;
+      border: 1px solid #9bb2d6;
+      padding: 5px 7px;
+      text-align: left;
+      font-weight: bold;
+    }
+    td {
+      border: 1px solid #c5c5c5;
+      padding: 5px 7px;
+    }
+    .pass { color: #1e7e34; font-weight: bold; }
+    .fail { color: #c0392b; font-weight: bold; }
+    .pagebreak { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+  <div class="portada">
+    <div class="title">TURNOSRED</div>
+    <div class="subtitle">Backend de Gestión de Turnos Médicos</div>
+    <div class="meta">Documento de Evidencia &bull; Pruebas API REST &bull; Node.js / Express / Socket.IO / Zod</div>
+    <div class="meta" id="fechahoy"></div>
+  </div>
+
+  <h1>1. Alcance y Objetivo</h1>
+  <p>El presente documento recopila la evidencia de las pruebas realizadas sobre la API REST TurnosRed (Node.js, TypeScript, Express y Socket.IO). Se documenta la ejecución de peticiones en el cliente Thunder Client (VS Code), la validación Zod con errores 400 estandarizados, las consultas con query params, la ejecución de tests automatizados en estado Pass y la simulación de la API mediante un Mock Server local (json-server).</p>
+  <p>Tecnologías: Express 5 &bull; Socket.IO 4 &bull; Zod &bull; TypeScript 6 &bull; Postman / Newman.</p>
+
+  <h1>2. Configuración previa para las evidencias</h1>
+  <h2>2.1 Servidor local</h2>
+  <ul>
+    <li>Ejecutar el backend: <span class="codigo" style="display:inline; padding:1px 5px;">npm run dev</span> (puerto 3000).</li>
+    <li>Verificar en consola: "Servidor de TurnosRed ejecutándose en el puerto 3000".</li>
+  </ul>
+  <h2>2.2 Cliente de pruebas (Thunder Client)</h2>
+  <ul>
+    <li>Abrir la extensión <b>Thunder Client</b> en VS Code (icono de rayo en la barra lateral).</li>
+    <li>Crear una colección "TurnosRed" y usar la base http://localhost:3000.</li>
+    <li>Los scripts de test automatizados se ejecutan con <b>Newman</b> sobre la colección <b>postman/TurnosRed.postman_collection.json</b>.</li>
+  </ul>
+  <h2>2.3 Preparar el Mock Server (json-server)</h2>
+  <ul>
+    <li>Levantar el mock local con: <span class="codigo" style="display:inline;padding:1px 5px;">npx json-server postman/mock-db.json --port 3001</span></li>
+    <li>Los datos ya están normalizados en <b>postman/mock-db.json</b> (formato objeto con rutas /turnos y /medicos).</li>
+  </ul>
+
+  <h1>3. Evidencia de peticiones y respuestas</h1>
+  <p>Se muestran las respuestas reales obtenidas (formato JSON) mediante Thunder Client.</p>
+
+  <h2>3.1 GET /turnos — Listar turnos</h2>
+  <ul><li>Petición: <b>GET {{baseUrl}}/turnos</b> &rarr; Estado: <b>200 OK</b>.</li></ul>
+  <div class="codigo">[{"id":103,"paciente":"Ana Gomez","documento":"28999111","especialidad":"Clínica Médica","fecha":"15/08/2026","hora":"11:30","confirmado":false,"medicoId":202},{"id":5801,"paciente":"Lucía Fernández","documento":"AB-4567 / 2026","especialidad":"Nutrición","fecha":"16/08/2026","hora":"9:30","confirmado":true,"medicoId":201}]</div>
+
+  <h2>3.2 GET /medicos — Listar médicos</h2>
+  <ul><li>Petición: <b>GET {{baseUrl}}/medicos</b> &rarr; Estado: <b>200 OK</b>.</li></ul>
+  <div class="codigo">[{"id":201,"nombre":"Dra. Laura Fernandez","matricula":"MN 12345","especialidad":"Pediatría","activo":true},{"id":202,"nombre":"Dr. Martin Lopez","matricula":"67890","especialidad":"Clínica Médica","activo":true}]</div>
+
+  <h2>3.3 POST /turnos — Crear turno</h2>
+  <ul><li>Petición: <b>POST {{baseUrl}}/turnos</b> con body JSON &rarr; <b>201 Created</b>.</li></ul>
+  <div class="codigo">{ "id": 5801, "paciente": "Lucía Fernández", "documento": "AB-4567 / 2026", "especialidad": "Nutrición", "fecha": "16/08/2026", "hora": "9:30", "confirmado": true, "medicoId": 201 }</div>
+
+  <h2>3.4 PUT /medicos/:id — Actualizar médico</h2>
+  <ul><li>Petición: <b>PUT {{baseUrl}}/medicos/201</b> con body &rarr; <b>200 OK</b>.</li></ul>
+  <div class="codigo">{ "id": 201, "nombre": "Dra. Laura Fernandez", "matricula": "MN 12345", "especialidad": "Pediatría", "activo": true }</div>
+
+  <h2>3.5 DELETE /turnos/:id — Eliminar turno</h2>
+  <ul><li>Petición: <b>DELETE {{baseUrl}}/turnos/{id}</b> &rarr; <b>204 No Content</b> (sin cuerpo).</li></ul>
+  <div class="codigo">(cuerpo vacío — HTTP 204)</div>
+
+  <div class="pagebreak"></div>
+  <h1>4. Evidencia de validaciones Zod (error 400 estandarizado)</h1>
+  <p>Se enviaron cuerpos inválidos para verificar el formato unificado de error de la API: <span class="codigo" style="display:inline;padding:1px 5px;">{ status, message, code, details }</span>.</p>
+
+  <h2>4.1 Especialidad no válida (Title Case)</h2>
+  <ul><li>POST /turnos con especialidad: "PEDIATRÍA" &rarr; <b>400 VALIDATION_ERROR</b>.</li></ul>
+  <div class="codigo">{ "status": 400, "message": "Error de validación en los datos ingresados.", "code": "VALIDATION_ERROR", "details": [ { "path": "especialidad", "message": "La especialidad debe estar en formato Title Case (ej. \"Clínica médica\", \"Pediatría\")." } ] }</div>
+
+  <h2>4.2 Campos faltantes o tipo incorrecto</h2>
+  <ul><li>POST /medicos con datos inválidos &rarr; <b>400 VALIDATION_ERROR</b> con details.</li></ul>
+  <div class="codigo">{ "status": 400, "message": "Error de validación en los datos ingresados.", "code": "VALIDATION_ERROR", "details": [] }</div>
+
+  <h2>4.3 Recurso inexistente (404 NOT_FOUND)</h2>
+  <ul><li>GET /turnos/99999 &rarr; <b>404</b> con code NOT_FOUND y formato estándar.</li></ul>
+  <div class="codigo">{ "status": 404, "message": "Turno no encontrado.", "code": "NOT_FOUND", "details": [] }</div>
+
+  <h1>5. Evidencia de consultas con Query Params</h1>
+  <h2>5.1 Filtros en Turnos</h2>
+  <ul>
+    <li>GET /turnos?especialidad=Pediatria &rarr; turnos de Pediatría (insensible a mayúsculas/acentos).</li>
+    <li>GET /turnos?medicoId=202 &rarr; turnos del médico 202.</li>
+  </ul>
+  <div class="codigo">GET /turnos?especialidad=Pediatria &rarr; [ { "id": 102, "paciente": "Carlos Ruiz", "especialidad": "Pediatría", ... } ]\nGET /turnos?medicoId=202 &rarr; [ { "id": 103, "paciente": "Ana Gomez", "especialidad": "Clínica Médica", "medicoId": 202, ... } ]</div>
+
+  <h2>5.2 Filtros en Médicos</h2>
+  <ul>
+    <li>GET /medicos?disponible=true &rarr; médicos activos.</li>
+    <li>GET /medicos?especialidad=Odontologia&amp;disponible=false &rarr; combinación de filtros.</li>
+  </ul>
+  <div class="codigo">GET /medicos?disponible=true &rarr; [ { "id": 202, "nombre": "Dr. Martin Lopez", "activo": true }, ... ]\nGET /medicos?especialidad=Odontologia&amp;disponible=false &rarr; [ { "id": 203, "nombre": "Dra. Silvia Rodriguez", "especialidad": "Odontología", "activo": false } ]</div>
+
+  <h1>6. Evidencia de tests automatizados en verde (Pass)</h1>
+  <p>La colección incluye scripts de test con aserciones de código de estado (200/201/204/400/404) y de esquema JSON. Se ejecutó la colección completa con Newman; el resumen real obtenido se muestra a continuación.</p>
+  <p><b>Resultado de la ejecución (Newman):</b></p>
+  <div class="codigo">┌───────────────┬──────────┬─────────┐\n│               │ executed │ failed  │\n├───────────────┼──────────┼─────────┤\n│ iterations    │        1 │       0 │\n│ requests      │       16 │       0 │\n│ test-scripts  │       16 │       0 │\n│ assertions    │       52 │       0 │\n└───────────────┴──────────┴─────────┘\n→ TOTAL PASS</div>
+  <p>Detalle de las 16 peticiones ejecutadas y su estado:</p>
+  <table>
+    <tr><th>Método</th><th>Recurso</th><th>HTTP esperado</th><th>Tests</th><th>Estado</th></tr>
+    <tr><td>GET</td><td>/turnos</td><td>200</td><td>4</td><td class="pass">PASS</td></tr>
+    <tr><td>GET</td><td>/turnos?especialidad=&fecha=</td><td>200</td><td>3</td><td class="pass">PASS</td></tr>
+    <tr><td>GET</td><td>/turnos/:id</td><td>200</td><td>4</td><td class="pass">PASS</td></tr>
+    <tr><td>GET</td><td>/turnos/99999 (inexistente)</td><td>404</td><td>3</td><td class="pass">PASS</td></tr>
+    <tr><td>POST</td><td>/turnos</td><td>201</td><td>5</td><td class="pass">PASS</td></tr>
+    <tr><td>POST</td><td>/turnos (inválido)</td><td>400</td><td>4</td><td class="pass">PASS</td></tr>
+    <tr><td>PUT</td><td>/turnos/:id</td><td>200</td><td>3</td><td class="pass">PASS</td></tr>
+    <tr><td>DELETE</td><td>/turnos/:id</td><td>204</td><td>2</td><td class="pass">PASS</td></tr>
+    <tr><td>GET</td><td>/medicos</td><td>200</td><td>3</td><td class="pass">PASS</td></tr>
+    <tr><td>GET</td><td>/medicos?disponible=</td><td>200</td><td>2</td><td class="pass">PASS</td></tr>
+    <tr><td>GET</td><td>/medicos/:id</td><td>200</td><td>3</td><td class="pass">PASS</td></tr>
+    <tr><td>GET</td><td>/medicos/99999 (inexistente)</td><td>404</td><td>3</td><td class="pass">PASS</td></tr>
+    <tr><td>POST</td><td>/medicos</td><td>201</td><td>4</td><td class="pass">PASS</td></tr>
+    <tr><td>POST</td><td>/medicos (inválido)</td><td>400</td><td>4</td><td class="pass">PASS</td></tr>
+    <tr><td>PUT</td><td>/medicos/:id</td><td>200</td><td>3</td><td class="pass">PASS</td></tr>
+    <tr><td>DELETE</td><td>/medicos/:id</td><td>204</td><td>2</td><td class="pass">PASS</td></tr>
+  </table>
+
+  <h2>6.1 Ejecución de los tests</h2>
+  <ul><li>Los tests automatizados se ejecutan con <b>Newman</b> sobre la colección de la API.</li></ul>
+
+  <h2>6.2 Newman (terminal)</h2>
+  <ul><li>Comando: <span class="codigo" style="display:inline;padding:1px 5px;">npx newman run postman/TurnosRed.postman_collection.json -e postman/TurnosRed.postman_environment.json</span></li></ul>
+
+  <h1>7. Evidencia de Mock Server</h1>
+  <p>Se simuló la API localmente con <b>json-server</b> (los datos están normalizados en el archivo <b>postman/mock-db.json</b> con formato de objeto, donde cada clave define un endpoint). Así puede responderse la API sin necesidad del backend real.</p>
+
+  <h2>7.1 Levantar el Mock Server</h2>
+  <div class="codigo">npx json-server postman/mock-db.json --port 3001</div>
+  <ul>
+    <li>Responderá en <b>http://localhost:3001</b> con las rutas <b>/turnos</b> y <b>/medicos</b>.</li>
+    <li>Truco: funciona con un archivo de objeto { "turnos": [...], "medicos": [...] } (un archivo con array suelto genera 404 en json-server v1).</li>
+  </ul>
+
+  <h2>7.2 Petición contra el Mock (GET /turnos)</h2>
+  <ul><li>Petición: <b>GET http://localhost:3001/turnos</b> en Thunder Client &rarr; respuesta simulada <b>200</b>.</li></ul>
+
+  <h2>7.3 Otras peticiones contra el Mock</h2>
+  <ul>
+    <li>GET <b>http://localhost:3001/medicos</b> y GET <b>http://localhost:3001/turnos/99999</b> (404 simulado).</li>
+    <li>POST /turnos (201), PUT /medicos/:id (200) y DELETE /turnos/:id (200).</li>
+  </ul>
+
+  <h1>8. Conclusión</h1>
+  <p>La API de TurnosRed cumple con los requisitos RESTful solicitados (verbos HTTP correctos y códigos 200/201/204/400/404/500), expone errores bajo un formato estándar unificado, valida los datos con Zod (incluyendo especialidades en Title Case y documento como string), soporta filtros por query params en la capa de servicios, cuenta con tests automatizados en verde y puede simularse localmente mediante un Mock Server de json-server.</p>
+
+  <script>
+    document.getElementById('fechahoy').textContent = 'Fecha de elaboración: ' + new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
+  </script>
+</body>
+</html>
