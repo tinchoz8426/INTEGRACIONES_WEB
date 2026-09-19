@@ -18,6 +18,12 @@ export const helloWorld = async (_req: Request, res: Response): Promise<Response
         'POST /medicos',
         'PUT  /medicos/:id',
         'DELETE /medicos/:id',
+        'GET  /pacientes',
+        'GET  /pacientes/:id',
+        'GET  /pacientes/:id/turnos',
+        'POST /pacientes',
+        'PUT  /pacientes/:id',
+        'DELETE /pacientes/:id',
       ],
       timestamp: new Date().toISOString(),
     };

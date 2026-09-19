@@ -13,7 +13,7 @@ Sistema backend centralizado desarrollado con **Node.js**, **TypeScript**, **Exp
 5. [Documentación de la API REST](#documentación-de-la-api-rest)
 6. [Formato Estándar de Errores](#formato-estándar-de-errores)
 7. [Normalización de Datos](#normalización-de-datos)
-8. [Módulo Pacientes y Turnos (Mockup)](#módulo-pacientes-y-turnos-mockup)
+8. [Módulo Pacientes y Turnos](#módulo-pacientes-y-turnos)
 9. [Pruebas con Postman (Variables de Entorno)](#pruebas-con-postman-variables-de-entorno)
 10. [Reporte de uso de Inteligencia Artificial](#reporte-de-uso-de-inteligencia-artificial-ia)
 
@@ -74,6 +74,7 @@ El servidor levanta en `http://localhost:3000`, carga los datos iniciales desde 
 | `PORT` | Puerto en el que escucha el servidor HTTP/WebSockets | `3000` |
 | `DATA_PATH` | Ruta al archivo de datos de turnos | `./src/data/turnos.json` |
 | `MEDICOS_PATH` | Ruta al archivo de datos de médicos | `./src/data/medicos.json` |
+| `PACIENTES_PATH` | Ruta al archivo de datos de pacientes | `./src/data/pacientes.json` |
 
 ---
 
@@ -125,7 +126,7 @@ Cada controlador exporta funciones **asíncronas** `async (req, res)` con:
 ```json
 {
   "message": "¡Bienvenido a la API TurnosRed!",
-  "endpoints": ["GET  /", "GET  /turnos", "POST /turnos", "GET  /medicos", "..."],
+  "endpoints": ["GET  /", "GET  /turnos", "POST /turnos", "GET  /pacientes", "..."],
   "timestamp": "2026-09-15T03:25:36.043Z"
 }
 ```
