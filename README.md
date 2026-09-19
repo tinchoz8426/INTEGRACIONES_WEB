@@ -62,7 +62,7 @@ Al iniciar, el servidor carga los datos iniciales desde los archivos JSON (repor
 ```text
 src/
 ├── config/       # Variables de entorno y configuración general
-├── controllers/  # Controladores HTTP de Express
+├── controllers/  # Controladores HTTP de Express (por entidad + general)
 ├── data/         # Archivos de datos crudos (JSON)
 ├── events/       # Instancia e integración de EventEmitter
 ├── middlewares/  # Manejo de errores y validación (Zod)
@@ -70,13 +70,19 @@ src/
 ├── routes/       # Definición de endpoints REST
 ├── schemas/      # Esquemas de validación Zod
 ├── services/     # Lógica de negocio e interacción con datos
-├── utils/        # Módulos auxiliares (AppError, helpers de texto)
+├── utils/        # Módulos auxiliares (AppError, httpError, helpers de texto)
 └── index.ts      # Punto de entrada y servidor Socket.IO
 ```
 
 ## Endpoints
 
 Base URL: `http://localhost:3000`
+
+### Bienvenida
+
+| Método | Ruta | Descripción | Códigos de éxito |
+|---|---|---|---|
+| `GET` | `/` | Bienvenida a la API y listado de endpoints disponibles | `200` |
 
 ### Recurso Turnos (`/turnos`)
 
@@ -169,9 +175,37 @@ Todas las respuestas fallidas usan una estructura JSON uniforme:
 |---|---|---|
 | `VALIDATION_ERROR` | Fallo de validación de campos (Zod) | `400` |
 | `BAD_REQUEST` | Solicitud mal formada | `400` |
+| `INVALID_ID` | ID de recurso no numérico o inválido | `400` |
 | `NOT_FOUND` | Recurso no encontrado / ruta inexistente | `404` |
 | `CONFLICT` | ID duplicado al crear | `409` |
 | `INTERNAL_SERVER_ERROR` | Error interno del servidor | `500` |
+
+## Arquitectura: Controladores (Clean Architecture)
+
+La lógica de los endpoints se encuentra **desacoplada de las rutas** y delegada a
+controladores independientes, preparados para la futura integración con base de datos:
+
+- `src/controllers/general.controller.ts` → **Controller General**: gestiona el endpoint de
+  bienvenida (`GET /`) y el middleware de peticiones a **rutas inexistentes** (`404 NOT_FOUND`).
+- `src/controllers/turno.controller.ts` → **Controller por entidad Turnos**.
+- `src/controllers/medico.controller.ts` → **Controller por entidad Médicos**.
+
+Cada controlador exporta funciones **asíncronas** (`async (req, res)`) y sigue el siguiente
+patrón uniforme:
+
+1. **Variable de estado `status`**: se declara al inicio de cada controlador con el código
+   esperado del camino feliz (ej. `200`, `201`, `204`) y se ajusta dinámicamente ante errores.
+2. **Validaciones previas**: se valida la entrada (ID numérico, campos obligatorios) antes de
+   invocar la lógica de negocio. Si fallan, se lanza un error: `throw new Error(...)` con el
+   código de estado configurado (via `httpError`).
+3. **Retorno anticipado**: toda respuesta usa `return res.status(status).json(...)` para evitar
+   ejecuciones posteriores y cabeceras duplicadas (`headers already sent`).
+4. **Bloque `try-catch`**: envuelve la lógica y captura tanto validaciones propias como fallos
+   inesperados del servidor, devolviendo siempre una estructura JSON coherente
+   `{ status, message, code, details }`.
+
+Las rutas permanecen delgadas (`src/routes/*.ts`), la lógica de negocio en los servicios
+(`src/services/*.ts`) y la validación de esquemas en los middlewares Zod.
 
 ### Normalización de datos
 
@@ -204,6 +238,7 @@ Durante el desarrollo del proyecto se utilizaron herramientas de IA generativa p
 | CRUD del recurso Médico | ChatGPT / Gemini | *"Desarrolla el CRUD completo de /medicos siguiendo la misma arquitectura en capas de /turnos."* | Capas completas: `models/medico.model.ts`, `services/medico.service.ts`, `controllers/medico.controller.ts`, `routes/medico.routes.ts` y datos seed en `data/medicos.json`. | Ajuste manual: se integró el bridge con el patrón existente (`appEvents`), se añadió `MEDICOS_PATH` a `config/env.ts` y se mantuvo la respuesta `204` sin cuerpo en DELETE. |
 | Colocación de pulsaciones en Postman | ChatGPT / Gemini | *"Genera una colección Postman con variables de entorno, tests automatizados y respuestas guardadas para simular la API."* | Colección `postman/TurnosRed.postman_collection.json` y ambiente `TurnosRed.postman_environment.json` con scripts de test y ejemplos guardados. | Ajuste manual: se corrigió el acceso a `req.query` (getter ready-only en Express), se ampliaron los rangos de IDs dinámicos para evitar colisiones y se eliminó un helper compartido que no persistía entre requests. |
 | Documentación técnica | ChatGPT / Gemini | *"Documenta los endpoints, variables de entorno, estructura de carpetas y ejemplos de query params en el README."* | Borrador de este archivo `README.md` con instalación, tablas de endpoints y formato de errores. | Ajuste manual: se verificó cada ejemplo contra la ejecución real del servidor y se incorporó la sección de "Uso de Inteligencia Artificial" con el detalle de ajustes aplicados. |
+| Refactor Clean Architecture (Controllers) | ChatGPT / Gemini | *"Refactoriza los handlers hacia controladores async con variable de estado, validaciones previas, throw new Error con código de estado, try-catch y return explícito; crea un controller general de bienvenida y 404."* | Controladores asíncronos con `let status`, `throw` + `httpError`, `try-catch` y `return` explícito en `src/controllers/`; nuevo `general.controller.ts` (bienvenida + 404) y utilidad `src/utils/httpError.ts`. | Ajuste manual: se conservó el formato de error `{ status, message, code, details }` exigido por la suite de Newman, se mantuvo la validación Zod por middleware y se adaptó `req.params.id` al tipo `string | string[]` de Express 5. |
 
 ---
 

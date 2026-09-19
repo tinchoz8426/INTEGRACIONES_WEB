@@ -7,7 +7,8 @@ import medicoRoutes from './routes/medico.routes.js';
 import { turnoService } from './services/turno.service.js';
 import { medicoService } from './services/medico.service.js';
 import { appEvents } from './events/eventEmitter.js';
-import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
+import { errorHandler } from './middlewares/errorHandler.js';
+import { helloWorld, notFoundRoute } from './controllers/general.controller.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -18,10 +19,11 @@ const io = new SocketIOServer(httpServer, {
 });
 
 app.use(express.json());
+app.get('/', helloWorld);
 app.use('/turnos', turnoRoutes);
 app.use('/medicos', medicoRoutes);
 
-app.use(notFoundHandler);
+app.use(notFoundRoute);
 app.use(errorHandler);
 
 // Puente entre EventEmitter y Socket.IO

@@ -1,23 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { AppError } from '../utils/AppError.js';
-
-interface ErrorResponse {
-  status: number;
-  message: string;
-  code: string;
-  details: unknown[];
-}
-
-export function notFoundHandler(req: Request, res: Response): void {
-  const body: ErrorResponse = {
-    status: 404,
-    message: `Ruta no encontrada: ${req.method} ${req.originalUrl}`,
-    code: 'NOT_FOUND',
-    details: [],
-  };
-  res.status(404).json(body);
-}
+import { ErrorResponse, errorResponse } from '../utils/httpError.js';
 
 export function errorHandler(
   error: unknown,
@@ -37,13 +20,8 @@ export function errorHandler(
         message: issue.message,
       })),
     };
-  } else if (error instanceof AppError) {
-    body = {
-      status: error.status,
-      message: error.message,
-      code: error.code,
-      details: error.details,
-    };
+  } else if (error instanceof Error && typeof error.message === 'string') {
+    body = errorResponse(error);
   } else {
     console.error(error);
     body = {

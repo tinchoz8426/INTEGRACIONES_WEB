@@ -91,6 +91,7 @@
 
   <h1>1. Alcance y Objetivo</h1>
   <p>El presente documento recopila la evidencia de las pruebas realizadas sobre la API REST TurnosRed (Node.js, TypeScript, Express y Socket.IO). Se documenta la ejecución de peticiones en el cliente Thunder Client (VS Code), la validación Zod con errores 400 estandarizados, las consultas con query params, la ejecución de tests automatizados en estado Pass y la simulación de la API mediante un Mock Server local (json-server).</p>
+  <p>Además se evidencia la <b>refactorización hacia Clean Architecture</b>: la lógica de los endpoints migró a <b>controladores asíncronos</b> por entidad (Turnos y Médicos) y a un <b>controller general</b> que gestiona el endpoint de bienvenida (<b>GET /</b>) y el manejador de <b>rutas inexistentes (404)</b>.</p>
   <p>Tecnologías: Express 5 &bull; Socket.IO 4 &bull; Zod &bull; TypeScript 6 &bull; Postman / Newman.</p>
 
   <h1>2. Configuración previa para las evidencias</h1>
@@ -135,38 +136,53 @@
   <div class="codigo">(cuerpo vacío — HTTP 204)</div>
 
   <div class="pagebreak"></div>
-  <h1>4. Evidencia de validaciones Zod (error 400 estandarizado)</h1>
+  <h1>4. Evidencia del Controller General (bienvenida y rutas 404)</h1>
+  <p>El <b>general.controller.ts</b> expone dos funciones asíncronas: <b>helloWorld</b> (endpoint <b>GET /</b>) y <b>notFoundRoute</b> (middleware para rutas inexistentes). Ambos gestionan su código de estado mediante la variable <span class="codigo" style="display:inline;padding:1px 5px;">status</span> y retornan con <span class="codigo" style="display:inline;padding:1px 5px;">return res.status(status).json(...)</span>.</p>
+
+  <h2>4.1 Endpoint de bienvenida (GET /)</h2>
+  <ul><li>GET / &rarr; <b>200 OK</b> con mensaje de bienvenida y listado de endpoints.</li></ul>
+  <div class="codigo">{ "message": "¡Bienvenido a la API TurnosRed!", "endpoints": [ "GET  /", "GET  /turnos", "GET  /turnos/:id", "POST /turnos", "PUT  /turnos/:id", "DELETE /turnos/:id", "GET  /medicos", "GET  /medicos/:id", "POST /medicos", "PUT  /medicos/:id", "DELETE /medicos/:id" ], "timestamp": "2026-09-15T03:25:36.043Z" }</div>
+
+  <h2>4.2 Ruta no encontrada a través del controller (404)</h2>
+  <ul><li>GET /ruta-inexistente &rarr; <b>404</b> gestionado por <b>notFoundRoute</b> (general.controller.ts) con formato estándar.</li></ul>
+  <div class="codigo">{ "status": 404, "message": "Ruta no encontrada: GET /ruta-inexistente", "code": "NOT_FOUND", "details": [] }</div>
+
+  <h2>4.3 Validación de ID inválido (400 INVALID_ID)</h2>
+  <ul><li>GET /turnos/abc &rarr; <b>400</b> con code INVALID_ID (validación previa en el controlador antes de consultar datos).</li></ul>
+  <div class="codigo">{ "status": 400, "message": "El ID de turno debe ser un número entero positivo.", "code": "INVALID_ID", "details": [ { "path": "id", "message": "El ID de turno debe ser un número entero positivo." } ] }</div>
+
+  <h1>5. Evidencia de validaciones Zod (error 400 estandarizado)</h1>
   <p>Se enviaron cuerpos inválidos para verificar el formato unificado de error de la API: <span class="codigo" style="display:inline;padding:1px 5px;">{ status, message, code, details }</span>.</p>
 
-  <h2>4.1 Especialidad no válida (Title Case)</h2>
+  <h2>5.1 Especialidad no válida (Title Case)</h2>
   <ul><li>POST /turnos con especialidad: "PEDIATRÍA" &rarr; <b>400 VALIDATION_ERROR</b>.</li></ul>
   <div class="codigo">{ "status": 400, "message": "Error de validación en los datos ingresados.", "code": "VALIDATION_ERROR", "details": [ { "path": "especialidad", "message": "La especialidad debe estar en formato Title Case (ej. \"Clínica médica\", \"Pediatría\")." } ] }</div>
 
-  <h2>4.2 Campos faltantes o tipo incorrecto</h2>
+  <h2>5.2 Campos faltantes o tipo incorrecto</h2>
   <ul><li>POST /medicos con datos inválidos &rarr; <b>400 VALIDATION_ERROR</b> con details.</li></ul>
   <div class="codigo">{ "status": 400, "message": "Error de validación en los datos ingresados.", "code": "VALIDATION_ERROR", "details": [] }</div>
 
-  <h2>4.3 Recurso inexistente (404 NOT_FOUND)</h2>
+  <h2>5.3 Recurso inexistente (404 NOT_FOUND)</h2>
   <ul><li>GET /turnos/99999 &rarr; <b>404</b> con code NOT_FOUND y formato estándar.</li></ul>
   <div class="codigo">{ "status": 404, "message": "Turno no encontrado.", "code": "NOT_FOUND", "details": [] }</div>
 
-  <h1>5. Evidencia de consultas con Query Params</h1>
-  <h2>5.1 Filtros en Turnos</h2>
+  <h1>6. Evidencia de consultas con Query Params</h1>
+  <h2>6.1 Filtros en Turnos</h2>
   <ul>
     <li>GET /turnos?especialidad=Pediatria &rarr; turnos de Pediatría (insensible a mayúsculas/acentos).</li>
     <li>GET /turnos?medicoId=202 &rarr; turnos del médico 202.</li>
   </ul>
   <div class="codigo">GET /turnos?especialidad=Pediatria &rarr; [ { "id": 102, "paciente": "Carlos Ruiz", "especialidad": "Pediatría", ... } ]\nGET /turnos?medicoId=202 &rarr; [ { "id": 103, "paciente": "Ana Gomez", "especialidad": "Clínica Médica", "medicoId": 202, ... } ]</div>
 
-  <h2>5.2 Filtros en Médicos</h2>
+  <h2>6.2 Filtros en Médicos</h2>
   <ul>
     <li>GET /medicos?disponible=true &rarr; médicos activos.</li>
     <li>GET /medicos?especialidad=Odontologia&amp;disponible=false &rarr; combinación de filtros.</li>
   </ul>
   <div class="codigo">GET /medicos?disponible=true &rarr; [ { "id": 202, "nombre": "Dr. Martin Lopez", "activo": true }, ... ]\nGET /medicos?especialidad=Odontologia&amp;disponible=false &rarr; [ { "id": 203, "nombre": "Dra. Silvia Rodriguez", "especialidad": "Odontología", "activo": false } ]</div>
 
-  <h1>6. Evidencia de tests automatizados en verde (Pass)</h1>
-  <p>La colección incluye scripts de test con aserciones de código de estado (200/201/204/400/404) y de esquema JSON. Se ejecutó la colección completa con Newman; el resumen real obtenido se muestra a continuación.</p>
+  <h1>7. Evidencia de tests automatizados en verde (Pass)</h1>
+  <p>La colección incluye scripts de test con aserciones de código de estado (200/201/204/400/404) y de esquema JSON. Se ejecutó la colección completa con Newman <b>después de la refactorización a Clean Architecture</b>, verificando que no existan regresiones; el resumen real obtenido se muestra a continuación.</p>
   <p><b>Resultado de la ejecución (Newman):</b></p>
   <div class="codigo">┌───────────────┬──────────┬─────────┐\n│               │ executed │ failed  │\n├───────────────┼──────────┼─────────┤\n│ iterations    │        1 │       0 │\n│ requests      │       16 │       0 │\n│ test-scripts  │       16 │       0 │\n│ assertions    │       52 │       0 │\n└───────────────┴──────────┴─────────┘\n→ TOTAL PASS</div>
   <p>Detalle de las 16 peticiones ejecutadas y su estado:</p>
@@ -190,33 +206,33 @@
     <tr><td>DELETE</td><td>/medicos/:id</td><td>204</td><td>2</td><td class="pass">PASS</td></tr>
   </table>
 
-  <h2>6.1 Ejecución de los tests</h2>
+  <h2>7.1 Ejecución de los tests</h2>
   <ul><li>Los tests automatizados se ejecutan con <b>Newman</b> sobre la colección de la API.</li></ul>
 
-  <h2>6.2 Newman (terminal)</h2>
+  <h2>7.2 Newman (terminal)</h2>
   <ul><li>Comando: <span class="codigo" style="display:inline;padding:1px 5px;">npx newman run postman/TurnosRed.postman_collection.json -e postman/TurnosRed.postman_environment.json</span></li></ul>
 
-  <h1>7. Evidencia de Mock Server</h1>
+  <h1>8. Evidencia de Mock Server</h1>
   <p>Se simuló la API localmente con <b>json-server</b> (los datos están normalizados en el archivo <b>postman/mock-db.json</b> con formato de objeto, donde cada clave define un endpoint). Así puede responderse la API sin necesidad del backend real.</p>
 
-  <h2>7.1 Levantar el Mock Server</h2>
+  <h2>8.1 Levantar el Mock Server</h2>
   <div class="codigo">npx json-server postman/mock-db.json --port 3001</div>
   <ul>
     <li>Responderá en <b>http://localhost:3001</b> con las rutas <b>/turnos</b> y <b>/medicos</b>.</li>
     <li>Truco: funciona con un archivo de objeto { "turnos": [...], "medicos": [...] } (un archivo con array suelto genera 404 en json-server v1).</li>
   </ul>
 
-  <h2>7.2 Petición contra el Mock (GET /turnos)</h2>
+  <h2>8.2 Petición contra el Mock (GET /turnos)</h2>
   <ul><li>Petición: <b>GET http://localhost:3001/turnos</b> en Thunder Client &rarr; respuesta simulada <b>200</b>.</li></ul>
 
-  <h2>7.3 Otras peticiones contra el Mock</h2>
+  <h2>8.3 Otras peticiones contra el Mock</h2>
   <ul>
     <li>GET <b>http://localhost:3001/medicos</b> y GET <b>http://localhost:3001/turnos/99999</b> (404 simulado).</li>
     <li>POST /turnos (201), PUT /medicos/:id (200) y DELETE /turnos/:id (200).</li>
   </ul>
 
-  <h1>8. Conclusión</h1>
-  <p>La API de TurnosRed cumple con los requisitos RESTful solicitados (verbos HTTP correctos y códigos 200/201/204/400/404/500), expone errores bajo un formato estándar unificado, valida los datos con Zod (incluyendo especialidades en Title Case y documento como string), soporta filtros por query params en la capa de servicios, cuenta con tests automatizados en verde y puede simularse localmente mediante un Mock Server de json-server.</p>
+  <h1>9. Conclusión</h1>
+  <p>La API de TurnosRed cumple con los requisitos RESTful solicitados (verbos HTTP correctos y códigos 200/201/204/400/404/500), expone errores bajo un formato estándar unificado, valida los datos con Zod (incluyendo especialidades en Title Case y documento como string), soporta filtros por query params en la capa de servicios y queda organizada bajo <b>Clean Architecture</b>: controladores asíncronos por entidad, controller general (bienvenida y rutas 404), validaciones previas con retorno anticipado y gestión dinámica de códigos de estado. Cuenta con tests automatizados en verde (sin regresiones tras la refactorización) y puede simularse localmente mediante un Mock Server de json-server.</p>
 
   <script>
     document.getElementById('fechahoy').textContent = 'Fecha de elaboración: ' + new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
