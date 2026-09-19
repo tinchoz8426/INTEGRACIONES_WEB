@@ -7,6 +7,7 @@ export interface TurnoCrudo {
   hora: string;
   confirmado: string | boolean;
   medicoId?: string | number;
+  pacienteId?: string | number;
   observaciones?: string;
 }
 
@@ -19,6 +20,7 @@ export interface Turno {
   hora: string;
   confirmado: boolean;
   medicoId?: number;
+  pacienteId?: number;
   observaciones?: string;
 }
 
@@ -75,6 +77,18 @@ export function normalizarTurno(crudo: Partial<TurnoCrudo>): Turno | null {
       }
     }
 
+    let pacienteIdNormalizado: number | undefined;
+    if (
+      crudo.pacienteId !== undefined &&
+      crudo.pacienteId !== null &&
+      crudo.pacienteId !== ''
+    ) {
+      const pId = Number(crudo.pacienteId);
+      if (!isNaN(pId) && pId > 0 && Number.isInteger(pId)) {
+        pacienteIdNormalizado = pId;
+      }
+    }
+
     return {
       id: idNum,
       paciente: pacienteSanitizado,
@@ -84,6 +98,7 @@ export function normalizarTurno(crudo: Partial<TurnoCrudo>): Turno | null {
       hora: horaSanitizada,
       confirmado: confirmadoBooleano,
       ...(medicoIdNormalizado ? { medicoId: medicoIdNormalizado } : {}),
+      ...(pacienteIdNormalizado ? { pacienteId: pacienteIdNormalizado } : {}),
       ...(crudo.observaciones
         ? { observaciones: String(crudo.observaciones).trim() }
         : {}),

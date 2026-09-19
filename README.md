@@ -1,117 +1,231 @@
-# TurnosRed - Backend de Gestión de Turnos Médicos
+# TurnosRed — Backend de Gestión de Turnos Médicos
 
-Sistema backend centralizado desarrollado con **Node.js**, **TypeScript**, **Express** y **Socket.IO** para la normalización y gestión en tiempo real de turnos ambulatorios y médicos.
+Sistema backend centralizado desarrollado con **Node.js**, **TypeScript**, **Express** y **Socket.IO** para la normalización y gestión en tiempo real de turnos ambulatorios y médicos, organizado bajo los principios de **Clean Architecture** (controladores por entidad).
+
+---
+
+## Tabla de contenidos
+
+1. [Requisitos Previos](#requisitos-previos)
+2. [Instalación y Ejecución](#instalación-y-ejecución)
+3. [Variables de Entorno](#variables-de-entorno)
+4. [Arquitectura (Clean Architecture)](#arquitectura-clean-architecture)
+5. [Documentación de la API REST](#documentación-de-la-api-rest)
+6. [Formato Estándar de Errores](#formato-estándar-de-errores)
+7. [Normalización de Datos](#normalización-de-datos)
+8. [Módulo Pacientes y Turnos (Mockup)](#módulo-pacientes-y-turnos-mockup)
+9. [Pruebas con Postman (Variables de Entorno)](#pruebas-con-postman-variables-de-entorno)
+10. [Reporte de uso de Inteligencia Artificial](#reporte-de-uso-de-inteligencia-artificial-ia)
+
+---
 
 ## Requisitos Previos
 
-- **Node.js**: v20.x o superior (LTS)
-- **NVM** (Node Version Manager)
-- **npm**: v10.x o superior
+| Requisito | Versión recomendada |
+|---|---|
+| **Node.js** | v20.x o superior (LTS) |
+| **npm** | v10.x o superior |
+| **NVM** (opcional) | Para gestionar la versión de Node |
+
+---
 
 ## Instalación y Ejecución
 
-### 1. Clonar el repositorio
+Siga estos pasos para ejecutar el proyecto en desarrollo:
 
 ```bash
+# 1. Clonar el repositorio
 git clone <URL_DEL_REPOSITORIO>
 cd turnos-red
-```
 
-### 2. Seleccionar la versión de Node mediante NVM
-
-```bash
+# 2. (Opcional) Seleccionar la versión de Node definida en el proyecto
 nvm use
-```
 
-### 3. Instalar dependencias
-
-```bash
+# 3. Instalar dependencias
 npm install
-```
 
-### 4. Configurar variables de entorno
-
-Copiar `.env.example` a `.env`:
-
-```bash
+# 4. Configurar variables de entorno
 cp .env.example .env
 ```
 
-### 5. Ejecutar
+Luego puede ejecutar el server con `npm run dev` (recomendado en desarrollo):
+
+```bash
+npm run dev
+```
+
+El servidor levanta en `http://localhost:3000`, carga los datos iniciales desde los archivos JSON
+(reportando en consola los registros aceptados y rechazados) y queda listo para recibir peticiones.
 
 | Comando | Descripción |
 |---|---|
-| `npm run dev` | Modo desarrollo con recarga automática (ts-node-dev). |
-| `npm run build` | Compila TypeScript a JavaScript en `dist/`. |
-| `npm start` | Ejecuta el código compilado (`dist/index.js`). |
-| `npm run lint` | Ejecuta ESLint sobre `src/`. |
-| `npm run format` | Formatea el código fuente con Prettier. |
+| `npm run dev` | Modo desarrollo con recarga automática |
+| `npm run build` | Compila TypeScript a JavaScript en `dist/` |
+| `npm start` | Ejecuta el código compilado (`dist/index.js`) |
+| `npm run lint` | Ejecuta ESLint sobre `src/` |
+| `npm run format` | Formatea el código fuente con Prettier |
 
-Al iniciar, el servidor carga los datos iniciales desde los archivos JSON (reportando registros aceptados y rechazados) y comienza a escuchar en el puerto configurado.
+---
 
 ## Variables de Entorno
 
 | Variable | Descripción | Valor por defecto |
 |---|---|---|
 | `PORT` | Puerto en el que escucha el servidor HTTP/WebSockets | `3000` |
-| `DATA_PATH` | Ruta relativa al archivo de datos iniciales de turnos | `./src/data/turnos.json` |
-| `MEDICOS_PATH` | Ruta relativa al archivo de datos iniciales de médicos | `./src/data/medicos.json` |
+| `DATA_PATH` | Ruta al archivo de datos de turnos | `./src/data/turnos.json` |
+| `MEDICOS_PATH` | Ruta al archivo de datos de médicos | `./src/data/medicos.json` |
 
-## Estructura de Carpetas
+---
+
+## Arquitectura (Clean Architecture)
+
+La lógica de cada endpoint está **desacoplada de las rutas** y delegada a controladores asíncronos.
 
 ```text
 src/
-├── config/       # Variables de entorno y configuración general
-├── controllers/  # Controladores HTTP de Express (por entidad + general)
-├── data/         # Archivos de datos crudos (JSON)
-├── events/       # Instancia e integración de EventEmitter
-├── middlewares/  # Manejo de errores y validación (Zod)
-├── models/       # Interfaces TypeScript y funciones de normalización
-├── routes/       # Definición de endpoints REST
+├── config/       # Variables de entorno
+├── controllers/  # Controladores HTTP (por entidad + general)
+├── data/         # Datos crudos (JSON)
+├── events/       # EventEmitter (bridge Socket.IO)
+├── middlewares/  # errorHandler y validación (Zod)
+├── models/       # Interfaces TypeScript y normalización
+├── routes/       # Definición de rutas delgadas
 ├── schemas/      # Esquemas de validación Zod
-├── services/     # Lógica de negocio e interacción con datos
-├── utils/        # Módulos auxiliares (AppError, httpError, helpers de texto)
-└── index.ts      # Punto de entrada y servidor Socket.IO
+├── services/     # Lógica de negocio + persistencia en memoria
+├── utils/        # AppError, httpError, helpers de texto
+└── index.ts      # Punto de entrada + Socket.IO
 ```
 
-## Endpoints
+### Patrón de controlador
 
-Base URL: `http://localhost:3000`
+Cada controlador exporta funciones **asíncronas** `async (req, res)` con:
 
-### Bienvenida
+1. Variable de estado `status` al inicio (camino feliz → `200`/`201`/`204`).
+2. **Validaciones previas** antes de tocar datos; si fallan, `throw new Error(...)` con código de estado (`httpError`).
+3. **Retorno anticipado**: `return res.status(status).json(...)` en toda respuesta (evita `headers already sent`).
+4. **`try-catch`** que captura validaciones propias y fallos inesperados, devolviendo siempre `{ status, message, code, details }`.
 
-| Método | Ruta | Descripción | Códigos de éxito |
-|---|---|---|---|
-| `GET` | `/` | Bienvenida a la API y listado de endpoints disponibles | `200` |
+---
 
-### Recurso Turnos (`/turnos`)
+## Documentación de la API REST
 
-| Método | Ruta | Descripción | Códigos de éxito |
-|---|---|---|---|
-| `GET` | `/turnos` | Lista todos los turnos (con filtros opcionales) | `200` |
-| `GET` | `/turnos/:id` | Consulta un turno por identificador | `200` |
-| `POST` | `/turnos` | Crea un nuevo turno | `201` |
-| `PUT` | `/turnos/:id` | Actualiza la información de un turno | `200` |
-| `DELETE` | `/turnos/:id` | Elimina un turno | `204` |
+**Base URL:** `http://localhost:3000`
 
-#### Ejemplos de Query Params (GET /turnos)
+> En Postman/Thunder Client la base url se parametriza con la variable **`{{baseUrl}}`** (ver [Pruebas con Postman](#pruebas-con-postman-variables-de-entorno)).
+
+### 1. `GET /` — Bienvenida
+
+- **Descripción**: endpoint de apertura; devuelve un mensaje de bienvenida y la lista de endpoints disponibles. Lo gestiona el **controller general** (`helloWorld`).
+- **Respuestas**:
+
+| Código | Escenario | Estructura |
+|---|---|---|
+| `200` | Éxito | `{ message, endpoints, timestamp }` |
+
+```json
+{
+  "message": "¡Bienvenido a la API TurnosRed!",
+  "endpoints": ["GET  /", "GET  /turnos", "POST /turnos", "GET  /medicos", "..."],
+  "timestamp": "2026-09-15T03:25:36.043Z"
+}
+```
+
+---
+
+### Recurso Turnos — `/turnos`
+
+#### 2.1 `GET /turnos` — Listar turnos
+
+- **Descripción**: devuelve la lista de turnos, opcionalmente filtrada por query params.
+- **Query Params** (todos opcionales):
 
 | Parámetro | Tipo | Descripción | Ejemplo |
 |---|---|---|---|
 | `especialidad` | `string` | Filtra por especialidad (insensible a mayúsculas/acentos) | `?especialidad=Pediatria` |
-| `fecha` | `string` | Filtra por fecha exacta (formato `dd/mm/aaaa`) | `?fecha=14/08/2026` |
-| `medicoId` | `number` | Filtra por identificador de médico asignado | `?medicoId=201` |
+| `fecha` | `string` | Filtra por fecha exacta (`dd/mm/aaaa`) | `?fecha=14/08/2026` |
+| `medicoId` | `number` | Filtra por médico asignado | `?medicoId=202` |
+
+- **Respuestas**:
+
+| Código | Escenario | Estructura |
+|---|---|---|
+| `200` | Lista de turnos normalizados | `Turno[]` |
+| `400` | Query params inválidos | `{ status, message, code: "VALIDATION_ERROR", details }` |
 
 ```text
-GET /turnos?especialidad=Pediatria&fecha=14/08/2026
-GET /turnos?medicoId=202
+GET http://localhost:3000/turnos?especialidad=Pediatria&fecha=14/08/2026
 ```
 
-**Cuerpo de ejemplo (POST /turnos):**
+```json
+[
+  {
+    "id": 102,
+    "paciente": "Carlos Ruiz",
+    "documento": "31654210",
+    "especialidad": "Pediatría",
+    "fecha": "14/08/2026",
+    "hora": "10:00",
+    "confirmado": true,
+    "medicoId": 201
+  }
+]
+```
+
+#### 2.2 `GET /turnos/:id` — Obtener turno por ID
+
+- **Parámetros**: `id` (path) — número entero positivo.
+- **Respuestas**:
+
+| Código | Escenario | Estructura |
+|---|---|---|
+| `200` | Turno encontrado | `Turno` |
+| `400` | `id` no numérico o no positivo | `{ status, message, code: "INVALID_ID", details }` |
+| `404` | Turno inexistente | `{ status, message, code: "NOT_FOUND", details }` |
+
+```text
+GET http://localhost:3000/turnos/102
+```
 
 ```json
 {
-  "id": 104,
+  "id": 102,
+  "paciente": "Carlos Ruiz",
+  "documento": "31654210",
+  "especialidad": "Pediatría",
+  "fecha": "14/08/2026",
+  "hora": "10:00",
+  "confirmado": true,
+  "medicoId": 201
+}
+```
+
+#### 2.3 `POST /turnos` — Crear turno
+
+- **Body (JSON)** — esquema `turnoCreateSchema` (Zod, estricto):
+
+| Campo | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `id` | `number` \| `string` numérica | ✅ | Identificador del turno |
+| `paciente` | `string` | ✅ | Nombre del paciente |
+| `documento` | `string` \| `number` | ✅ | Documento (se normaliza a `string`) |
+| `especialidad` | `string` | ✅ | Title Case (ej. `"Nutrición"`) |
+| `fecha` | `string` | ✅ | Fecha del turno `dd/mm/aaaa` |
+| `hora` | `string` | ✅ | Hora (acepta `9.30` → `9:30`) |
+| `confirmado` | `boolean` \| `"si"/"no"` | ✅ | Estado de confirmación |
+| `medicoId` | `number` | ⬜ | Médico asignado |
+| `observaciones` | `string` | ⬜ | Notas complementarias |
+
+- **Respuestas**:
+
+| Código | Escenario | Estructura |
+|---|---|---|
+| `201` | Turno creado | `Turno` normalizado |
+| `400` | Cuerpo inválido / id inválido | `{ status, message, code: "VALIDATION_ERROR" \| "INVALID_ID", details }` |
+| `409` | ID duplicado | `{ status, message, code: "CONFLICT", details }` |
+
+```json
+{
+  "id": 8001,
   "paciente": "Lucía Fernández",
   "documento": "AB-4567 / 2026",
   "especialidad": "Nutrición",
@@ -122,33 +236,78 @@ GET /turnos?medicoId=202
 }
 ```
 
-### Recurso Médicos (`/medicos`)
+#### 2.4 `PUT /turnos/:id` — Actualizar turno
 
-| Método | Ruta | Descripción | Códigos de éxito |
-|---|---|---|---|
-| `GET` | `/medicos` | Lista todos los médicos (con filtros opcionales) | `200` |
-| `GET` | `/medicos/:id` | Consulta un médico por identificador | `200` |
-| `POST` | `/medicos` | Registra un nuevo médico | `201` |
-| `PUT` | `/medicos/:id` | Actualiza la información de un médico | `200` |
-| `DELETE` | `/medicos/:id` | Da de baja un médico | `204` |
-
-#### Ejemplos de Query Params (GET /medicos)
-
-| Parámetro | Tipo | Descripción | Ejemplo |
-|---|---|---|---|
-| `especialidad` | `string` | Filtra por especialidad (insensible a mayúsculas/acentos) | `?especialidad=Odontologia` |
-| `disponible` | `boolean` | Filtra por disponibilidad (`true`/`false`) | `?disponible=true` |
-
-```text
-GET /medicos?especialidad=Odontologia&disponible=true
-GET /medicos?disponible=false
-```
-
-**Cuerpo de ejemplo (POST /medicos):**
+- **Descripción**: actualiza parcialmente un turno (merge). Body: cualquier subconjunto de campos del esquema de creación.
+- **Respuestas**: `200` (turno actualizado) · `400` (`INVALID_ID` / `VALIDATION_ERROR`) · `404` (no encontrado).
 
 ```json
 {
-  "id": 401,
+  "paciente": "Carlos Ruiz Gómez",
+  "confirmado": true
+}
+```
+
+#### 2.5 `DELETE /turnos/:id` — Eliminar turno
+
+- **Respuestas**: `204` (sin cuerpo) · `400` (`INVALID_ID`) · `404` (no encontrado).
+
+---
+
+### Recurso Médicos — `/medicos`
+
+#### 3.1 `GET /medicos` — Listar médicos
+
+- **Query Params** (opcionales):
+
+| Parámetro | Tipo | Descripción | Ejemplo |
+|---|---|---|---|
+| `especialidad` | `string` | Filtra por especialidad (insensible a acentos) | `?especialidad=Odontologia` |
+| `disponible` | `boolean` | Filtra por disponibilidad (`true`/`false`) | `?disponible=true` |
+
+- **Respuestas**: `200` (`Medico[]`) · `400` (query inválidos).
+
+```text
+GET http://localhost:3000/medicos?especialidad=Odontologia&disponible=true
+```
+
+```json
+[
+  {
+    "id": 203,
+    "nombre": "Dra. Silvia Rodriguez",
+    "matricula": "MN 24680",
+    "especialidad": "Odontología",
+    "telefono": "11-5555-0404",
+    "email": "silvia.rodriguez@hospital.com",
+    "activo": false
+  }
+]
+```
+
+#### 3.2 `GET /medicos/:id` — Obtener médico por ID
+
+- **Respuestas**: `200` (`Medico`) · `400` (`INVALID_ID`) · `404` (`NOT_FOUND`).
+
+#### 3.3 `POST /medicos` — Registrar médico
+
+- **Body (JSON)** — esquema `medicoCreateSchema` (Zod, estricto):
+
+| Campo | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `id` | `number` \| `string` numérica | ✅ | Identificador |
+| `nombre` | `string` | ✅ | Nombre completo |
+| `matricula` | `string` \| `number` | ✅ | Matrícula profesional |
+| `especialidad` | `string` | ✅ | Title Case (ej. `"Cardiología"`) |
+| `telefono` | `string` \| `number` | ⬜ | Teléfono |
+| `email` | `string` | ⬜ | Email (validado) |
+| `activo` | `boolean` | ⬜ | Alta / baja (default `true`) |
+
+- **Respuestas**: `201` (`Medico`) · `400` (`VALIDATION_ERROR`/`INVALID_ID`) · `409` (`CONFLICT`).
+
+```json
+{
+  "id": 9001,
   "nombre": "Dra. María Gómez",
   "matricula": "MN 13579",
   "especialidad": "Cardiología",
@@ -158,15 +317,71 @@ GET /medicos?disponible=false
 }
 ```
 
-### Formato estándar de errores
+#### 3.4 `PUT /medicos/:id` — Actualizar médico
+
+- **Respuestas**: `200` · `400` (`INVALID_ID`/`VALIDATION_ERROR`) · `404`.
+
+```json
+{
+  "activo": false,
+  "telefono": "11-5555-0101"
+}
+```
+
+#### 3.5 `DELETE /medicos/:id` — Dar de baja médico
+
+- **Respuestas**: `204` (sin cuerpo) · `400` (`INVALID_ID`) · `404`.
+
+---
+
+## Recurso Pacientes — `/pacientes`
+
+CRUD completo del nuevo módulo de Pacientes, más el endpoint relacional de turnos del paciente.
+La relación se resuelve por `pacienteId` cuando el turno lo referencia, o por coincidencia de `documento` del turno
+con el `dni` del paciente. Módulo implementado según la propuesta de [`pacientes-turnos.md`](./pacientes-turnos.md).
+
+#### 4.1 `GET /pacientes` — Listar pacientes
+
+- **Descripción**: devuelve todos los pacientes registrados.
+- **Query (opcional)**: `apellido` para filtrar por apellido exacto.
+- **Respuestas**: `200` (array de pacientes, vacío si no hay).
+
+#### 4.2 `GET /pacientes/:id` — Obtener paciente por ID
+
+- **Respuestas**: `200` (paciente) · `400` (`INVALID_ID`) · `404`.
+
+#### 4.3 `GET /pacientes/:id/turnos` — Turnos de un paciente
+
+- **Respuestas**: `200` (array de turnos del paciente) · `400` (`INVALID_ID`) · `404`
+  (si el paciente no existe).
+
+#### 4.4 `POST /pacientes` — Registrar paciente
+
+- **Body requerido**: `id` (entero positivo), `dni`, `nombre`, `apellido`, `fechaNacimiento`, `telefono`.
+- **Body opcional**: `email`, `direccion`, `obraSocial`.
+- **Respuestas**: `201` (paciente creado) · `400` (`VALIDATION_ERROR`) · `409`
+  (`CONFLICT` si el `id` o el `dni` ya existen).
+
+#### 4.5 `PUT /pacientes/:id` — Actualizar paciente
+
+- **Respuestas**: `200` (paciente actualizado) · `400` (`INVALID_ID`) · `404` · `409`
+  (`CONFLICT` si el `dni` ya lo usa otro paciente).
+
+#### 4.6 `DELETE /pacientes/:id` — Dar de baja paciente
+
+- **Respuestas**: `204` (sin cuerpo) · `400` (`INVALID_ID`) · `404`.
+
+---
+
+## Formato Estándar de Errores
 
 Todas las respuestas fallidas usan una estructura JSON uniforme:
 
 ```json
 {
-  "status": 400,
-  "message": "Error de validación en los datos ingresados.",
-  "code": "VALIDATION_ERROR",
+  "status": 404,
+  "message": "Turno no encontrado.",
+  "code": "NOT_FOUND",
   "details": []
 }
 ```
@@ -175,96 +390,97 @@ Todas las respuestas fallidas usan una estructura JSON uniforme:
 |---|---|---|
 | `VALIDATION_ERROR` | Fallo de validación de campos (Zod) | `400` |
 | `BAD_REQUEST` | Solicitud mal formada | `400` |
-| `INVALID_ID` | ID de recurso no numérico o inválido | `400` |
-| `NOT_FOUND` | Recurso no encontrado / ruta inexistente | `404` |
+| `INVALID_ID` | ID de recurso inválido (no numérico / no positivo) | `400` |
+| `NOT_FOUND` | Recurso no encontrado | `404` |
 | `CONFLICT` | ID duplicado al crear | `409` |
 | `INTERNAL_SERVER_ERROR` | Error interno del servidor | `500` |
 
-## Arquitectura: Controladores (Clean Architecture)
+---
 
-La lógica de los endpoints se encuentra **desacoplada de las rutas** y delegada a
-controladores independientes, preparados para la futura integración con base de datos:
+## Normalización de Datos
 
-- `src/controllers/general.controller.ts` → **Controller General**: gestiona el endpoint de
-  bienvenida (`GET /`) y el middleware de peticiones a **rutas inexistentes** (`404 NOT_FOUND`).
-- `src/controllers/turno.controller.ts` → **Controller por entidad Turnos**.
-- `src/controllers/medico.controller.ts` → **Controller por entidad Médicos**.
+- `documento` se almacena como `string` (formatos flexibles como `"AB-4567"`).
+- `especialidad` se normaliza a **Title Case** (`"CLÍNICA MÉDICA"` → `"Clínica Médica"`); la entrada exige ese formato.
+- `confirmado` se convierte de `"si"`/`"no"` a `boolean`.
+- `hora` se normaliza de `"."` a `":"` (`"9.30"` → `"9:30"`).
+- Los filtros por especialidad son insensibles a mayúsculas y acentos (`Pediatria` → `Pediatría`).
 
-Cada controlador exporta funciones **asíncronas** (`async (req, res)`) y sigue el siguiente
-patrón uniforme:
+---
 
-1. **Variable de estado `status`**: se declara al inicio de cada controlador con el código
-   esperado del camino feliz (ej. `200`, `201`, `204`) y se ajusta dinámicamente ante errores.
-2. **Validaciones previas**: se valida la entrada (ID numérico, campos obligatorios) antes de
-   invocar la lógica de negocio. Si fallan, se lanza un error: `throw new Error(...)` con el
-   código de estado configurado (via `httpError`).
-3. **Retorno anticipado**: toda respuesta usa `return res.status(status).json(...)` para evitar
-   ejecuciones posteriores y cabeceras duplicadas (`headers already sent`).
-4. **Bloque `try-catch`**: envuelve la lógica y captura tanto validaciones propias como fallos
-   inesperados del servidor, devolviendo siempre una estructura JSON coherente
-   `{ status, message, code, details }`.
+## Módulo Pacientes y Turnos
 
-Las rutas permanecen delgadas (`src/routes/*.ts`), la lógica de negocio en los servicios
-(`src/services/*.ts`) y la validación de esquemas en los middlewares Zod.
+Módulo de **Pacientes** y evolución del recurso **Turnos**: el **mockup** completo (modelado de datos,
+esquemas Zod, interfaces TypeScript y los 2 endpoints restantes según Clean Architecture) está en:
 
-### Normalización de datos
+➡️ **Ver [`pacientes-turnos.md`](./pacientes-turnos.md)**
 
-- `documento` se almacena como `string` (admitiendo formatos flexibles como `"AB-4567"`).
-- `especialidad` se normaliza a **Title Case / PascalCase** (p. ej. `"CLÍNICA MÉDICA"` → `"Clínica Médica"`). La validación de entrada (POST/PUT) exige este formato.
-- `confirmado` se convierte de `"si"`/`"no"` a booleano.
-- `hora` se normaliza de `"."` a `":"` (p. ej. `"9.30"` → `"9:30"`).
+> ✅ **Implementado**: el módulo `/pacientes` ya está desarrollado en código (ver
+> [Recurso Pacientes](#recurso-pacientes--pacientes)), incluido el endpoint relacional
+> `GET /pacientes/:id/turnos`.
 
-## Pruebas con Postman
+---
 
-Se incluye una colección completa con variables de entorno, scripts de test automatizados (códigos de estado y esquema JSON), escenarios Happy Path y casos borde, y respuestas guardadas para simular la API con Postman Mock Server:
+## Pruebas con Postman (Variables de Entorno)
+
+La colección de pruebas centraliza la URL base en la variable **`baseUrl`** a nivel de **Environment** y la usa en **todas** las peticiones (68 referencias; no existen URLs duras).
 
 - `postman/TurnosRed.postman_collection.json`
 - `postman/TurnosRed.postman_environment.json`
 
-Importación: **Postman → Import → seleccionar ambos archivos**.
+### Importación
+
+1. **Postman → Import** → seleccionar ambos archivos.
+2. En la esquina superior derecha, activar el environment **`turnosRedEnvi`**.
+3. Verificar el valor de la variable `baseUrl`:
+
+| Variable | Valor |
+|---|---|
+| `baseUrl` | `http://localhost:3000` |
+
+> Para apuntar a otro servidor (p. ej. mock), **solo** hay que editar la variable `baseUrl` del environment: no es necesario tocar ninguna petición.
+
+### Ejecución automatizada (Newman)
+
+```bash
+npx newman run postman/TurnosRed.postman_collection.json -e postman/TurnosRed.postman_environment.json
+```
+
+Resultado verificado: **16 peticiones · 52 aserciones · 0 fallos** (52/52 PASS).
 
 ---
 
 ## Reporte de uso de Inteligencia Artificial (IA)
 
-Durante el desarrollo del proyecto se utilizaron herramientas de IA generativa para asistir en la generación de código, la corrección de tipos y la elaboración de documentación. A continuación se detalla el registro de uso:
+Durante el desarrollo se utilizaron herramientas de IA generativa para asistir en la generación de código, la corrección de tipos y la elaboración de documentación.
 
 | Tarea | Herramienta | Prompt | Respuesta generada | Ajuste manual aplicado |
 |---|---|---|---|---|
-| Schema de validación Zod | ChatGPT / Gemini | *"Genera un esquema Zod para validar un recurso médico y otro de turnos, con documento como string flexible, id numérico positivo y especialidad en formato 'Clínica Médica' (Title Case)."* | Código de `src/schemas/turno.schema.ts` y `src/schemas/medico.schema.ts` con `z.object().strict()`, validación de campos obligatorios y tipos (`string | number`). | Corrección de tipos: se movió la validación de Title Case a un helper reutilizable (`src/schemas/common.schema.ts`) y se aplicó `.transform()` para convertir `documento` a `string`. |
-| Validación y manejo de errores estándar | ChatGPT / Gemini | *"Crea un middleware de manejo de errores que devuelva respuestas con estructura { status, message, code, details } y que intercepte errores de Zod."* | Código de `middlewares/errorHandler.ts` y `utils/AppError.ts` con diferenciación de `ZodError`, `AppError` y errores desconocidos. | Ajuste manual: se añadió `notFoundHandler` para rutas inexistentes y se eliminó el uso de variables no utilizadas (`_next`) para cumplir ESLint. |
-| Normalización de especialidad | ChatGPT / Gemini | *"Normaliza la especialidad a Title Case en Node.js (cada palabra empieza en mayúscula)."* | Expresión regular con `String.replace()` para capitalizar palabras en `models/turno.model.ts`. | Ajuste manual: se usó `(\p{L})` con Unicode flag sobre `.toLowerCase()` para soportar tildes y caracteres acentuados (p. ej. "Clínica", "Pediatría"). |
-| Filtros por query params | ChatGPT / Gemini | *"Implementa filtros por especialidad, fecha y medicoId en el servicio de Turnos sin crear nuevos endpoints."* | Método `obtenerTodos(filtros)` con `Array.filter` en `services/turno.service.ts` y `services/medico.service.ts`. | Ajuste manual: se agregó comparación insensible a acentos (`src/utils/text.ts`, función `sinDiacriticos`) para que `especialidad=Pediatria` encuentre "Pediatría". |
-| CRUD del recurso Médico | ChatGPT / Gemini | *"Desarrolla el CRUD completo de /medicos siguiendo la misma arquitectura en capas de /turnos."* | Capas completas: `models/medico.model.ts`, `services/medico.service.ts`, `controllers/medico.controller.ts`, `routes/medico.routes.ts` y datos seed en `data/medicos.json`. | Ajuste manual: se integró el bridge con el patrón existente (`appEvents`), se añadió `MEDICOS_PATH` a `config/env.ts` y se mantuvo la respuesta `204` sin cuerpo en DELETE. |
-| Colocación de pulsaciones en Postman | ChatGPT / Gemini | *"Genera una colección Postman con variables de entorno, tests automatizados y respuestas guardadas para simular la API."* | Colección `postman/TurnosRed.postman_collection.json` y ambiente `TurnosRed.postman_environment.json` con scripts de test y ejemplos guardados. | Ajuste manual: se corrigió el acceso a `req.query` (getter ready-only en Express), se ampliaron los rangos de IDs dinámicos para evitar colisiones y se eliminó un helper compartido que no persistía entre requests. |
-| Documentación técnica | ChatGPT / Gemini | *"Documenta los endpoints, variables de entorno, estructura de carpetas y ejemplos de query params en el README."* | Borrador de este archivo `README.md` con instalación, tablas de endpoints y formato de errores. | Ajuste manual: se verificó cada ejemplo contra la ejecución real del servidor y se incorporó la sección de "Uso de Inteligencia Artificial" con el detalle de ajustes aplicados. |
-| Refactor Clean Architecture (Controllers) | ChatGPT / Gemini | *"Refactoriza los handlers hacia controladores async con variable de estado, validaciones previas, throw new Error con código de estado, try-catch y return explícito; crea un controller general de bienvenida y 404."* | Controladores asíncronos con `let status`, `throw` + `httpError`, `try-catch` y `return` explícito en `src/controllers/`; nuevo `general.controller.ts` (bienvenida + 404) y utilidad `src/utils/httpError.ts`. | Ajuste manual: se conservó el formato de error `{ status, message, code, details }` exigido por la suite de Newman, se mantuvo la validación Zod por middleware y se adaptó `req.params.id` al tipo `string | string[]` de Express 5. |
+| Schema de validación Zod | ChatGPT / Gemini | *"Genera un esquema Zod para validar un recurso médico y otro de turnos, con documento como string flexible, id numérico positivo y especialidad en formato 'Clínica Médica' (Title Case)."* | Código de `src/schemas/turno.schema.ts` y `src/schemas/medico.schema.ts` con `z.object().strict()`. | Validación de Title Case movida a helper reutilizable (`src/schemas/common.schema.ts`) y `.transform()` para `documento`. |
+| Validación y manejo de errores estándar | ChatGPT / Gemini | *"Crea un middleware de manejo de errores que devuelva respuestas con estructura { status, message, code, details }."* | Código de `middlewares/errorHandler.ts` y `utils/AppError.ts`. | Se añadió `notFoundHandler` para rutas inexistentes y soporte de `ErrorConEstado`. |
+| Normalización de especialidad | ChatGPT / Gemini | *"Normaliza la especialidad a Title Case en Node.js (cada palabra empieza en mayúscula)."* | Expresión regular con `String.replace()` para capitalizar palabras. | Se usó `(\p{L})` con Unicode flag para soportar tildes y caracteres acentuados. |
+| Filtros por query params | ChatGPT / Gemini | *"Implementa filtros por especialidad, fecha y medicoId en el servicio de Turnos sin crear nuevos endpoints."* | Método `obtenerTodos(filtros)` con `Array.filter`. | Comparación insensible a acentos (`src/utils/text.ts`, `sinDiacriticos`). |
+| CRUD del recurso Médico | ChatGPT / Gemini | *"Desarrolla el CRUD completo de /medicos siguiendo la misma arquitectura en capas de /turnos."* | Capas completas para `medico` (model, service, controller, routes, data). | Se integró el bridge `appEvents` y `MEDICOS_PATH` en `config/env.ts`. |
+| Colección Postman | ChatGPT / Gemini | *"Genera una colección Postman con variables de entorno, tests automatizados y respuestas guardadas."* | Colección `TurnosRed.postman_collection.json` + environment. | Se centralizó la URL en `{{baseUrl}}` y se ampliaron los rangos de IDs dinámicos. |
+| Refactor Clean Architecture (Controllers) | ChatGPT / Gemini | *"Refactoriza los handlers hacia controladores async con variable de estado, validaciones previas, throw new Error con código de estado, try-catch y return explícito; crea un controller general de bienvenida y 404."* | Controladores asíncronos con `status`/`try-catch`/`return`; `general.controller.ts` (bienvenida + 404) y `utils/httpError.ts`. | Se conservó el formato de error exigido por Newman y se adaptó `req.params.id` a Express 5. |
+| Mockup módulo Pacientes y Turnos | ChatGPT / Gemini | *"Diseña la propuesta conceptual y técnica (modelado, esquemas y endpoints RESTful) para el módulo de pacientes y turnos según Clean Architecture."* | Documento `pacientes-turnos.md` con tablas de campos, interfaces TS, esquemas Zod y 2 endpoints. | Se verificaron campos contra esquemas reales del proyecto y respondéformato de `fechaNacimiento`. |
+| Implementación módulo Pacientes | ChatGPT / Gemini | *"Implementa el módulo /pacientes siguiendo la misma arquitectura en capas del proyecto (model, schema, service, controller, routes)."* | Capas completas de `paciente` + `GET /pacientes/:id/turnos`. | Se añadió `pacienteId` opcional al modelo Turno y consulta relacional por DNI; seed en `src/data/pacientes.json`. |
+| Documentación técnica integral | ChatGPT / Gemini | *"Genera la documentación completa de la API REST en README: método/path, descripción, params/body, respuestas y códigos, e instalación paso a paso."* | README.md reorganizado con documentación por endpoint y sección de variables `{{baseUrl}}`. | Cada ejemplo fue verificado contra la ejecución real del servidor y contra las schemas Zod. |
 
 ---
 
 ## Guía para Elaborar el Informe Técnico (PDF)
 
-Para completar los requisitos de la entrega en PDF (**máximo 5 páginas**), toma las capturas de pantalla siguiendo estos pasos.
+Para completar los requisitos de la entrega en PDF (**máximo 5 páginas**), se recomienda:
 
 ### 1. Captura de Depuración (Debugging) en VS Code
 
-1. Abre la pestaña **Run and Debug** en VS Code.
-2. Pon un punto de interrupción (*breakpoint*) en `src/controllers/turno.controller.ts`, dentro de la función `getTurnos`.
-3. Ejecuta el debugger con `ts-node-dev`.
-4. Realiza una petición:
+1. Abrir **Run and Debug**.
+2. Colocar un *breakpoint* en `src/controllers/turno.controller.ts` (función `getTurnos`).
+3. Ejecutar el debugger con `ts-node-dev`.
+4. Realizar `GET http://localhost:3000/turnos`.
+5. Capturar el panel **Variables** + la línea en ejecución.
 
-```text
-GET http://localhost:3000/turnos
-```
-
-5. Toma una captura de pantalla mostrando:
-   - Las variables disponibles en el panel **Variables**.
-   - La línea de código donde se encuentra el *breakpoint*.
-   - La ejecución detenida en el punto de interrupción.
-
-### 2. Capturas de Pruebas en Postman (5 Endpoints)
-
-Realiza las siguientes pruebas en Postman:
+### 2. Capturas de Pruebas (5 Endpoints)
 
 | Método | Endpoint | Resultado esperado |
 |---|---|---|
@@ -275,35 +491,8 @@ Realiza las siguientes pruebas en Postman:
 | `PUT` | `/turnos/102` | `200 OK` |
 | `DELETE` | `/turnos/102` | `204 No Content` |
 
-Para las operaciones `POST` y `PUT`, la captura debe mostrar el **body JSON enviado** y la respuesta obtenida.
+En `POST` y `PUT`, la captura debe mostrar el **body JSON** y la respuesta.
 
-### 3. Evidencia de Tiempo Real (Socket.IO)
+### 3. Evidencia en Tiempo Real (Socket.IO)
 
-Puedes utilizar una herramienta como **Postman WebSocket Request** o un HTML simple de prueba para conectarte al servidor Socket.IO.
-
-La prueba debe demostrar que los eventos se reciben en tiempo real.
-
-1. Conecta el cliente Socket.IO al servidor:
-
-```text
-http://localhost:3000
-```
-
-2. Ejecuta un `POST` o `PUT` sobre la API REST.
-
-3. Verifica que el cliente recibe el evento correspondiente:
-
-```text
-turno:nuevo
-```
-
-o
-
-```text
-turno:actualizado
-```
-
-4. Toma una captura de pantalla donde se pueda observar:
-   - La conexión del cliente Socket.IO.
-   - La operación realizada mediante la API REST.
-   - El evento recibido en tiempo real.
+Conectarse a `http://localhost:3000` desde un cliente Socket.IO, ejecutar un `POST`/`PUT` sobre la API y verificar que se recibe el evento (`turno:nuevo`, `turno:actualizado` o `turno:eliminado`).

@@ -129,6 +129,15 @@ class TurnoService {
     const [turnoEliminado] = this.turnos.splice(index, 1);
     appEvents.emit('turno:eliminado', turnoEliminado);
   }
+
+  obtenerTurnosPorPaciente(pacienteId: number, dni: string): Turno[] {
+    const dniLimpio = sinDiacriticos(dni.trim());
+    return this.turnos.filter(
+      (t) =>
+        t.pacienteId === pacienteId ||
+        (dniLimpio !== '' && sinDiacriticos(t.documento) === dniLimpio)
+    );
+  }
 }
 
 export const turnoService = new TurnoService();

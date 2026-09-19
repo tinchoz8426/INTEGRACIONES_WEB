@@ -19,6 +19,7 @@ export const turnoCreateSchema = z
       z.enum(['si', 'sí', 'no', 'true', 'false', '1', '0']),
     ]),
     medicoId: z.number().int().positive().optional(),
+    pacienteId: z.number().int().positive().optional(),
     observaciones: z.string().trim().optional(),
   })
   .strict();

@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1001,
+    "dni": "31654210",
+    "nombre": "Carlos",
+    "apellido": "Ruiz",
+    "fechaNacimiento": "12/04/1985",
+    "telefono": "11-5555-1234",
+    "email": "carlos.ruiz@mail.com",
+    "direccion": "Av. Siempre Viva 742",
+    "obraSocial": "OSDE 210"
+  },
+  {
+    "id": 1002,
+    "dni": "28999111",
+    "nombre": "Ana",
+    "apellido": "Gomez",
+    "fechaNacimiento": "03/11/1992",
+    "telefono": "11-5555-5678",
+    "email": "ana.gomez@mail.com",
+    "direccion": "Calle Falsa 123",
+    "obraSocial": "IOMA"
+  }
+]
